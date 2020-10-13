@@ -3,6 +3,16 @@
 
 using namespace sf;
 
+// Function declaration
+void updateBranches(int seed);
+const int NUM_BRANCHES = 6;
+Sprite branches[NUM_BRANCHES];
+
+// Where is the player/branch?
+// Left or Right
+enum class side { LEFT, RIGHT, NONE };
+side branchPosisitions[NUM_BRANCHES];
+
 int main(int argc, char const *argv[])
 {
     // Create a video mode object
@@ -78,6 +88,18 @@ int main(int argc, char const *argv[])
     // Variables to control time itself
     Clock clock;
 
+    // Time bar
+    RectangleShape timeBar;
+    float timeBarStartWidth = 400;
+    float timeBarHeight = 80;
+    timeBar.setSize(Vector2f(timeBarStartWidth, timeBarHeight));
+    timeBar.setFillColor(Color::Red);
+    timeBar.setPosition((1920 / 2) - timeBarStartWidth / 2, 980);
+
+    Time gameTimeTotal;
+    float timeRemaining = 6.0f;
+    float timeBarWidthPerSecond = timeBarStartWidth / timeRemaining;
+
     // Track wether the game is running
     bool paused = true;
 
@@ -114,6 +136,26 @@ int main(int argc, char const *argv[])
     messageText.setPosition(1920 / 2.0f, 1080 / 2.0f);
 
     scoreText.setPosition(20, 20);
+
+    // Prepare 6 branches
+    Texture textureBranch;
+    textureBranch.loadFromFile("graphics/branch.png");
+
+    // Set the texture fro each branch sprite
+    for (int  i = 0; i < NUM_BRANCHES; i++)
+    {
+        branches[i].setTexture(textureBranch);
+        branches[i].setPosition(-2000, -2000);
+        // Set the sprite's origin to dead center
+        // We can then spin it round without its position
+        branches[i].setOrigin(220, 20);
+    }
+    
+    updateBranches(1);
+    updateBranches(2);
+    updateBranches(3);
+    updateBranches(4);
+    updateBranches(5);
     
     while (window.isOpen())
     {
@@ -132,8 +174,12 @@ int main(int argc, char const *argv[])
        if (Keyboard::isKeyPressed(Keyboard::Return))
        {
            paused = false;
-       }
-       
+
+           // Reset the time and the score
+           score = 0;
+           timeRemaining = 5;
+
+       }     
 
         /*
         *******************************************************
@@ -145,6 +191,30 @@ int main(int argc, char const *argv[])
        {
            // Measure time
             Time dt = clock.restart();
+
+            // Substract from amount of time remaining
+            timeRemaining -= dt.asSeconds();
+            // size up the time bar
+            timeBar.setSize(Vector2f(timeBarWidthPerSecond * 
+                timeRemaining, timeBarHeight));
+            
+            if (timeRemaining <= 0.0f)
+            {
+                // Pause the game
+                paused = true;
+
+                // Change the message shown to the player
+                messageText.setString("Out of time!");
+
+                // Reposition the text based on its new size
+                FloatRect textRect = messageText.getLocalBounds();
+                messageText.setOrigin(textRect.left +
+                    textRect.width / 2.0f,
+                    textRect.top + 
+                    textRect.height / 2.0f);
+                messageText.setPosition(1920 / 2.0f, 1080 / 2.0f);
+            }
+            
 
             // Setup the bee
             if (!beeActive)
@@ -192,7 +262,8 @@ int main(int argc, char const *argv[])
             else
             {
                 spriteCloud1.setPosition(
-                    spriteCloud1.getPosition().x + ( cloud1Speed * dt.asSeconds()),
+                    spriteCloud1.getPosition().x + 
+                    ( cloud1Speed * dt.asSeconds()),
                     spriteCloud1.getPosition().y);
                 // Has the bee reached the right hand edge of the screen?
                 if (spriteCloud1.getPosition().x > 1920)
@@ -219,7 +290,8 @@ int main(int argc, char const *argv[])
             else
             {
                 spriteCloud2.setPosition(
-                    spriteCloud2.getPosition().x + ( cloud2Speed * dt.asSeconds()),
+                    spriteCloud2.getPosition().x + 
+                    ( cloud2Speed * dt.asSeconds()),
                     spriteCloud2.getPosition().y);
                 // Has the bee reached the right hand edge of the screen?
                 if (spriteCloud2.getPosition().x > 1920)
@@ -246,7 +318,8 @@ int main(int argc, char const *argv[])
             else
             {
                 spriteCloud3.setPosition(
-                    spriteCloud3.getPosition().x + ( cloud3Speed * dt.asSeconds()),
+                    spriteCloud3.getPosition().x + 
+                    ( cloud3Speed * dt.asSeconds()),
                     spriteCloud3.getPosition().y);
                 // Has the bee reached the right hand edge of the screen?
                 if (spriteCloud3.getPosition().x > 1920)
@@ -260,16 +333,38 @@ int main(int argc, char const *argv[])
             std::stringstream ss;
             ss << "Score = " << score;
             scoreText.setString(ss.str());
+
+            // Update the branch sprites
+            for (int i = 0; i < NUM_BRANCHES; i++)
+            {
+                float height = i * 150;
+                if (branchPosisitions[i] == side::LEFT)
+                {
+                    // Move the sprite to the left side
+                    branches[i].setPosition(610, height);
+
+                    // Flip the sprite round the other way
+                    branches[i].setRotation(180);
+                }
+                else if(branchPosisitions[i] == side::RIGHT)
+                {
+                    // Move the sprite to the left side
+                    branches[i].setPosition(1330, height);
+
+                    // Flip the sprite round the other way
+                    branches[i].setRotation(0);
+
+                }
+                else
+                {
+                    // Hide the branch
+                    branches[i].setPosition(3000, height);
+
+                }
+            }
+            
            
        }
-       
-       
-
-
-       
-
-
-
         /*
         *******************************************************
         Draw the scene
@@ -286,6 +381,13 @@ int main(int argc, char const *argv[])
         window.draw(spriteCloud2);
         window.draw(spriteCloud3);
 
+        // Draw the branches
+        for (int i = 0; i < NUM_BRANCHES; i++)
+        {
+            window.draw(branches[i]);
+        }
+        
+
         // Draw the tree
         window.draw(spriteTree);
 
@@ -294,13 +396,17 @@ int main(int argc, char const *argv[])
 
         // Draw the score
         window.draw(scoreText);
+
+        // Draw the timebar
+        window.draw(timeBar);
+
         if (paused)
         {
             // Draw our message
             window.draw(messageText);
         }
         
-        score++;
+        //score++;
 
 
         // Show everything we just drew
@@ -308,4 +414,32 @@ int main(int argc, char const *argv[])
     }
     
     return 0;
+}
+
+// Function definition
+void updateBranches(int seed)
+{
+    // Move all the branches down one place
+    for (int j = NUM_BRANCHES-1; j > 0; j--)
+    {
+        branchPosisitions[j] = branchPosisitions[j - 1];
+    }
+
+    // Spawn a new branch at position o
+    // Left, Right or None
+    srand((int)time(0)+seed);
+    int r = (rand() % 5);
+    switch (r)
+    {
+    case 0:
+        branchPosisitions[0] = side::LEFT;
+        break;
+    case 1:
+        branchPosisitions[0] = side::RIGHT;
+        break;    
+    default:        
+        branchPosisitions[0] = side::NONE;        
+        break;
+    }
+    
 }
